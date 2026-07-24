@@ -257,27 +257,202 @@ const analyzeFirstFive = async () => {
     setIsAnalyzing(false);
   }
 };
+const analyzedCount = analysisResults.length;
+
+const positiveCount = analysisResults.filter(
+  (item) => item.sentiment === "正面"
+).length;
+
+const negativeCount = analysisResults.filter(
+  (item) => item.sentiment === "负面"
+).length;
+
+const urgentCount = analysisResults.filter(
+  (item) => item.urgency >= 4
+).length;
+
+const positiveRate =
+  analyzedCount > 0
+    ? Math.round((positiveCount / analyzedCount) * 100)
+    : 0;
+
+const validReviewCount = commentColumn
+  ? csvRows.filter((row) => {
+      const content = row[commentColumn];
+      return content && content.trim().length > 0;
+    }).length
+  : 0;
   const title = nav.find(n => n[0] === active)?.[2] || "总览";
 
   return (
     <main className="shell">
       <aside className="sidebar">
         <div className="brand"><div className="brandMark">观</div><div><b>观微 Insight</b><span>用户声音智能平台</span></div></div>
-        <nav>{nav.map(([id, glyph, label]) => <button key={id} onClick={() => setActive(id)} className={active === id ? "active" : ""}><Icon>{glyph}</Icon>{label}{id === "reviews" && <em>12</em>}</button>)}</nav>
-        <div className="sideBottom"><div className="plan"><span>专业版 · 运行正常</span><div><i /></div><small>本月已分析 18,640 / 30,000 条</small></div><button onClick={() => notify("帮助中心已为你打开")}>?　帮助与支持</button><div className="profile"><div className="avatar">林</div><div><b>林小满</b><span>产品负责人</span></div><button>•••</button></div></div>
+        <nav>{nav.map(([id, glyph, label]) => <button key={id} onClick={() => setActive(id)} className={active === id ? "active" : ""}><Icon>{glyph}</Icon>{label}{id === "reviews" &&
+  negativeCount > 0 && (
+    <em>{negativeCount}</em>
+  )}</button>)}</nav>
+        <div className="sideBottom">
+  <div className="plan">
+    <span>本地演示版 · 运行正常</span>
+
+    <div>
+      <i
+        style={{
+          width:
+            validReviewCount > 0
+              ? `${Math.min(
+                  (analyzedCount / validReviewCount) * 100,
+                  100
+                )}%`
+              : "0%",
+        }}
+      />
+    </div>
+
+    <small>
+      当前会话已分析 {analyzedCount} / {validReviewCount} 条
+    </small>
+  </div>
+
+  <button
+    onClick={() =>
+      notify("帮助中心正在完善中")
+    }
+  >
+    ?　帮助与支持
+  </button>
+
+  <div className="profile">
+    <div className="avatar">J</div>
+
+    <div>
+      <b>JYM</b>
+      <span>AI 产品经理方向</span>
+    </div>
+
+    <button>•••</button>
+  </div>
+</div>
       </aside>
 
       <section className="workspace">
         <header><div><span className="eyebrow">2026年7月14日 · 星期二</span><h1>{title}</h1></div><div className="headerActions"><button className="ghost" onClick={() => setModal("source")}>＋ 添加数据源</button><button className="primary" onClick={() => setModal("report")}>✦ 生成报告</button></div></header>
 
         {active === "overview" ? <>
-          <div className="welcome"><div><span className="live"><i /> 数据已更新至 09:42</span><h2>早上好，产品经理</h2><p>昨日至今共发现 <b>486 条</b>新评论，其中有 <b>3 个高优先级问题</b>值得关注。</p></div><button onClick={() => { setActive("reviews"); notify("已筛选高优先级问题"); }}>查看优先问题 →</button></div>
+          <div className="welcome">
+  <div>
+    <span className="live">
+      <i />
+      {analyzedCount > 0
+        ? "AI 分析已完成"
+        : validReviewCount > 0
+          ? "评论数据已读取"
+          : "等待导入评论数据"}
+    </span>
+
+    <h2>
+      {analyzedCount > 0
+        ? "分析完成，产品经理"
+        : "早上好，产品经理"}
+    </h2>
+
+    <p>
+      {analyzedCount > 0 ? (
+        <>
+          当前共读取
+          <b> {validReviewCount} 条有效评论</b>，
+          已完成
+          <b> {analyzedCount} 条 AI 分析</b>，
+          其中有
+          <b> {urgentCount} 个高优先级问题</b>
+          值得关注。
+        </>
+      ) : validReviewCount > 0 ? (
+        <>
+          当前已读取
+          <b> {validReviewCount} 条有效评论</b>，
+          点击分析按钮即可生成产品洞察。
+        </>
+      ) : (
+        <>
+          暂无真实评论数据，请先添加 CSV 数据源并开始分析。
+        </>
+      )}
+    </p>
+  </div>
+
+  <button
+    onClick={() => {
+      if (analysisResults.length > 0) {
+        setActive("reviews");
+      } else {
+        setModal("source");
+      }
+    }}
+  >
+    {analysisResults.length > 0
+      ? "查看分析结果 →"
+      : "添加评论数据 →"}
+  </button>
+</div>
           <div className="metrics">
-            <Metric label="新增评论" value="486" change="↑ 18.2%" sub="较上一周期" color="mint" bars={[22,35,28,45,38,58,72]} />
-            <Metric label="正面口碑率" value="72.8%" change="↑ 4.6%" sub="较上一周期" color="blue" bars={[35,30,42,45,50,58,63]} />
-            <Metric label="待跟进问题" value="23" change="5 个紧急" sub="需要产品团队处理" color="orange" bars={[62,58,45,48,38,30,24]} />
-            <Metric label="覆盖数据源" value="8" change="全部正常" sub="最近同步 3 分钟前" color="purple" bars={[30,30,42,42,56,56,70]} />
-          </div>
+  <Metric
+    label="有效评论"
+    value={validReviewCount.toString()}
+    change={
+      validReviewCount > 0
+        ? "CSV 已读取"
+        : "等待上传"
+    }
+    sub="当前表格中的有效评论"
+    color="mint"
+    bars={[22, 35, 28, 45, 38, 58, 72]}
+  />
+
+  <Metric
+    label="正面口碑率"
+    value={
+      analyzedCount > 0
+        ? `${positiveRate}%`
+        : "—"
+    }
+    change={
+      analyzedCount > 0
+        ? `${positiveCount} 条正面`
+        : "等待分析"
+    }
+    sub={`基于 ${analyzedCount} 条已分析评论`}
+    color="blue"
+    bars={[35, 30, 42, 45, 50, 58, 63]}
+  />
+
+  <Metric
+    label="负面问题"
+    value={negativeCount.toString()}
+    change={
+      analyzedCount > 0
+        ? "真实结果"
+        : "等待分析"
+    }
+    sub="需要产品团队关注"
+    color="orange"
+    bars={[62, 58, 45, 48, 38, 30, 24]}
+  />
+
+  <Metric
+    label="高优先级问题"
+    value={urgentCount.toString()}
+    change={
+      analyzedCount > 0
+        ? "紧急程度 4–5"
+        : "等待分析"
+    }
+    sub="建议优先进入产品排期"
+    color="purple"
+    bars={[30, 30, 42, 42, 56, 56, 70]}
+  />
+</div>
           <div className="grid">
             <section className="card trend"><CardHead title="口碑趋势" sub="自家产品与重点竞品对比" range={range} setRange={setRange} />
               <div className="legend"><span><i className="our"/>我的产品 72.8%</span><span><i className="comp"/>竞品均值 65.1%</span></div>
@@ -558,8 +733,8 @@ function RealReviewAnalysis({
       <section className="analysisResults">
         {analysisResults.map((item, arrayIndex) => {
           const review =
-            analyzedReviews[item.index - 1] ??
-            analyzedReviews[arrayIndex];
+  analyzedReviews[item.index] ??
+  analyzedReviews[arrayIndex];
 
           return (
             <article
