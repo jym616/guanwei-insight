@@ -176,18 +176,18 @@ http://localhost:3000
 
 ### 产品总览
 
-![观微 Insight 产品总览](docs/images/dashboard.png)
+![观微 Insight 产品总览](dashboard.png)
 
 > 说明：总览页中的指标为界面演示数据，真实数据接入仍在迭代中。
 
 ### CSV 智能导入与字段识别
 
-![CSV 智能导入与字段识别](docs/images/csv-import.png)
+![CSV 智能导入与字段识别](csv-import.png)
 
 > 示例数据来自公开评论，仅用于产品功能演示。
 
 ### AI 评论分析结果
 
-![AI 评论分析结果](docs/images/ai-analysis.png)
+![AI 评论分析结果](ai-analysis.png)
 
-> 当前版本调用大模型分析前五条评论；短文本和语义不完整评论可能出现误判，后续将加入低置信度拦截与人工复核机制。
+> 当前版本分析前五条评论；短文本和语义不完整评论可能出现误判。
