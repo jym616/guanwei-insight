@@ -76,6 +76,13 @@ export default function Home() {
 
   const [analysisResults, setAnalysisResults] =
   useState<AnalysisItem[]>([]);
+  const [analyzedReviews, setAnalyzedReviews] = useState<
+  Array<{
+    author: string;
+    rating: string;
+    content: string;
+  }>
+>([]);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2600); };
   const handleCsvUpload = (
   event: React.ChangeEvent<HTMLInputElement>
@@ -232,6 +239,9 @@ const analyzeFirstFive = async () => {
       data.analysis?.results ?? [];
 
     setAnalysisResults(results);
+    setAnalyzedReviews(reviewsToAnalyze);
+    setModal(null);
+    setActive("reviews");
 
     notify(
       `分析完成：共分析 ${results.length} 条评论`
@@ -279,7 +289,19 @@ const analyzeFirstFive = async () => {
             </div><button className="cardLink" onClick={() => setActive("reviews")}>查看全部话题 →</button></section>
           </div>
           <section className="card feed"><CardHead title="最新用户声音" sub="跨平台实时汇总的新评论" /><div className="filters"><button className="selected">全部</button><button>我的产品</button><button>竞品</button><button onClick={() => notify("筛选器已打开")}>⚙ 筛选</button></div><div className="reviewTable"><div className="tr th"><span>来源 / 产品</span><span>评论内容</span><span>AI 识别</span><span>时间</span></div>{reviews.map((r,i)=><div className="tr" key={i}><span><b className={`source s${i}`}>{r.source.slice(0,1)}</b><span><strong>{r.source}</strong><small>{r.brand}</small></span></span><p>{r.text}</p><span><i className={`tone ${r.tone}`}>{r.tone}</i><small>{r.tag}</small></span><time>{r.time}</time></div>)}</div><button className="cardLink bottom" onClick={() => setActive("reviews")}>进入评论中心，查看全部 486 条 →</button></section>
-        </> : <FeaturePage active={active} notify={notify} openSource={() => setModal("source")} openReport={() => setModal("report")} />}
+        </> : active === "reviews" && analysisResults.length > 0 ? (
+  <RealReviewAnalysis
+    analyzedReviews={analyzedReviews}
+    analysisResults={analysisResults}
+  />
+) : (
+  <FeaturePage
+    active={active}
+    notify={notify}
+    openSource={() => setModal("source")}
+    openReport={() => setModal("report")}
+  />
+)}
       </section>
 
       {toast && <div className="toast">✓ {toast}</div>}
@@ -471,6 +493,137 @@ const analyzeFirstFive = async () => {
 )}
 </div></p><div className="sourceGrid">{["App Store","小红书","京东 / 淘宝","微博","知乎","CSV / Excel"].map(s=><button key={s} onClick={() => notify(`${s} 连接向导已启动`)}>{s}<span>连接 →</span></button>)}</div></> : <><span className="modalIcon">✦</span><h2>一键生成洞察报告</h2><p>AI 会汇总趋势、风险、用户原声和产品改进建议。</p><label>报告类型</label><div className="reportChoice"><button className="chosen">每日简报<small>今日新增与紧急问题</small></button><button>每周洞察<small>趋势对比与机会建议</small></button></div><button className="primary wide" onClick={() => {setModal(null); notify("报告生成中，完成后会通知你");}}>开始生成</button></>}</div></div>}
     </main>
+  );
+}
+function RealReviewAnalysis({
+  analyzedReviews,
+  analysisResults,
+}: {
+  analyzedReviews: Array<{
+    author: string;
+    rating: string;
+    content: string;
+  }>;
+  analysisResults: AnalysisItem[];
+}) {
+  const positiveCount = analysisResults.filter(
+    (item) => item.sentiment === "正面"
+  ).length;
+
+  const negativeCount = analysisResults.filter(
+    (item) => item.sentiment === "负面"
+  ).length;
+
+  const urgentCount = analysisResults.filter(
+    (item) => item.urgency >= 4
+  ).length;
+
+  return (
+    <div className="feature realReviewPage">
+      <section className="featureHero">
+        <span>☷</span>
+
+        <div>
+          <h2>真实评论分析结果</h2>
+          <p>
+            本次共分析 {analysisResults.length} 条评论，
+            其中正面 {positiveCount} 条、负面 {negativeCount} 条、
+            高优先级问题 {urgentCount} 条。
+          </p>
+        </div>
+      </section>
+
+      <div className="analysisSummary">
+        <div>
+          <span>已分析评论</span>
+          <strong>{analysisResults.length}</strong>
+        </div>
+
+        <div>
+          <span>正面评论</span>
+          <strong>{positiveCount}</strong>
+        </div>
+
+        <div>
+          <span>负面评论</span>
+          <strong>{negativeCount}</strong>
+        </div>
+
+        <div>
+          <span>高优先级问题</span>
+          <strong>{urgentCount}</strong>
+        </div>
+      </div>
+
+      <section className="analysisResults">
+        {analysisResults.map((item, arrayIndex) => {
+          const review =
+            analyzedReviews[item.index - 1] ??
+            analyzedReviews[arrayIndex];
+
+          return (
+            <article
+              className="analysisItem"
+              key={`${item.index}-${arrayIndex}`}
+            >
+              <div className="originalReview">
+                <div>
+                  <b>{review?.author || "未知用户"}</b>
+
+                  <span>
+                    {review?.rating
+                      ? `${review.rating} 星`
+                      : "暂无评分"}
+                  </span>
+                </div>
+
+                <p>{review?.content || "未找到原始评论"}</p>
+              </div>
+
+              <div className="analysisTop">
+                <b>{item.topic}</b>
+
+                <span
+                  className={
+                    item.sentiment === "负面"
+                      ? "negative"
+                      : item.sentiment === "正面"
+                        ? "positive"
+                        : "neutral"
+                  }
+                >
+                  {item.sentiment}
+                </span>
+              </div>
+
+              <p>
+                <strong>核心问题：</strong>
+                {item.issue}
+              </p>
+
+              <p>
+                <strong>通俗解释：</strong>
+                {item.plain_explanation}
+              </p>
+
+              <p>
+                <strong>处理建议：</strong>
+                {item.suggestion}
+              </p>
+
+              <div className="analysisMeta">
+                <span>紧急程度：{item.urgency}/5</span>
+
+                <span>
+                  置信度：
+                  {Math.round(item.confidence * 100)}%
+                </span>
+              </div>
+            </article>
+          );
+        })}
+      </section>
+    </div>
   );
 }
 
