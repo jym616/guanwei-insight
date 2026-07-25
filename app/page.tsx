@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Papa from "papaparse";
 
 type CsvRow = Record<string, string>;
@@ -14,6 +14,25 @@ type AnalysisItem = {
   urgency: number;
   suggestion: string;
   confidence: number;
+};
+
+type ReviewInput = {
+  author: string;
+  rating: string;
+  content: string;
+};
+
+type SavedAnalysis = {
+  fileName: string;
+  csvRows: CsvRow[];
+  csvColumns: string[];
+  commentColumn: string;
+  ratingColumn: string;
+  authorColumn: string;
+  dateColumn: string;
+  analyzedReviews: ReviewInput[];
+  analysisResults: AnalysisItem[];
+  savedAt: string;
 };
 
 function cleanColumnName(name: string) {
@@ -76,14 +95,68 @@ export default function Home() {
 
   const [analysisResults, setAnalysisResults] =
   useState<AnalysisItem[]>([]);
-  const [analyzedReviews, setAnalyzedReviews] = useState<
-  Array<{
-    author: string;
-    rating: string;
-    content: string;
-  }>
->([]);
+  const [analyzedReviews, setAnalyzedReviews] =
+  useState<ReviewInput[]>([]);
+
+const [savedAt, setSavedAt] = useState("");
+useEffect(() => {
+  const savedText = window.localStorage.getItem(
+    "guanwei:last-analysis"
+  );
+
+  if (!savedText) {
+    return;
+  }
+
+  try {
+    const saved = JSON.parse(
+      savedText
+    ) as SavedAnalysis;
+
+    setCsvFileName(saved.fileName);
+    setCsvRows(saved.csvRows);
+    setCsvColumns(saved.csvColumns);
+    setCommentColumn(saved.commentColumn);
+    setRatingColumn(saved.ratingColumn);
+    setAuthorColumn(saved.authorColumn);
+    setDateColumn(saved.dateColumn);
+    setAnalyzedReviews(saved.analyzedReviews);
+    setAnalysisResults(saved.analysisResults);
+    setSavedAt(saved.savedAt);
+  } catch {
+    window.localStorage.removeItem(
+      "guanwei:last-analysis"
+    );
+  }
+}, []);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2600); };
+  const clearSavedAnalysis = () => {
+  const confirmed = window.confirm(
+    "确定要清除当前分析记录吗？清除后无法恢复。"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  window.localStorage.removeItem(
+    "guanwei:last-analysis"
+  );
+
+  setCsvRows([]);
+  setCsvFileName("");
+  setCsvColumns([]);
+  setCommentColumn("");
+  setRatingColumn("");
+  setAuthorColumn("");
+  setDateColumn("");
+  setAnalyzedReviews([]);
+  setAnalysisResults([]);
+  setSavedAt("");
+  setActive("overview");
+
+  notify("当前分析记录已清除");
+};
   const handleCsvUpload = (
   event: React.ChangeEvent<HTMLInputElement>
 ) => {
@@ -238,10 +311,32 @@ const analyzeFirstFive = async () => {
     const results =
       data.analysis?.results ?? [];
 
-    setAnalysisResults(results);
-    setAnalyzedReviews(reviewsToAnalyze);
-    setModal(null);
-    setActive("reviews");
+ const savedTime = new Date().toISOString();
+
+setAnalysisResults(results);
+setAnalyzedReviews(reviewsToAnalyze);
+setSavedAt(savedTime);
+
+const savedAnalysis: SavedAnalysis = {
+  fileName: csvFileName,
+  csvRows,
+  csvColumns,
+  commentColumn,
+  ratingColumn,
+  authorColumn,
+  dateColumn,
+  analyzedReviews: reviewsToAnalyze,
+  analysisResults: results,
+  savedAt: savedTime,
+};
+
+window.localStorage.setItem(
+  "guanwei:last-analysis",
+  JSON.stringify(savedAnalysis)
+);
+
+setModal(null);
+setActive("reviews");
 
     notify(
       `分析完成：共分析 ${results.length} 条评论`
@@ -465,10 +560,12 @@ const validReviewCount = commentColumn
           </div>
           <section className="card feed"><CardHead title="最新用户声音" sub="跨平台实时汇总的新评论" /><div className="filters"><button className="selected">全部</button><button>我的产品</button><button>竞品</button><button onClick={() => notify("筛选器已打开")}>⚙ 筛选</button></div><div className="reviewTable"><div className="tr th"><span>来源 / 产品</span><span>评论内容</span><span>AI 识别</span><span>时间</span></div>{reviews.map((r,i)=><div className="tr" key={i}><span><b className={`source s${i}`}>{r.source.slice(0,1)}</b><span><strong>{r.source}</strong><small>{r.brand}</small></span></span><p>{r.text}</p><span><i className={`tone ${r.tone}`}>{r.tone}</i><small>{r.tag}</small></span><time>{r.time}</time></div>)}</div><button className="cardLink bottom" onClick={() => setActive("reviews")}>进入评论中心，查看全部 486 条 →</button></section>
         </> : active === "reviews" && analysisResults.length > 0 ? (
-  <RealReviewAnalysis
-    analyzedReviews={analyzedReviews}
-    analysisResults={analysisResults}
-  />
+<RealReviewAnalysis
+  analyzedReviews={analyzedReviews}
+  analysisResults={analysisResults}
+  savedAt={savedAt}
+  onClear={clearSavedAnalysis}
+/>
 ) : (
   <FeaturePage
     active={active}
@@ -673,13 +770,13 @@ const validReviewCount = commentColumn
 function RealReviewAnalysis({
   analyzedReviews,
   analysisResults,
+  savedAt,
+  onClear,
 }: {
-  analyzedReviews: Array<{
-    author: string;
-    rating: string;
-    content: string;
-  }>;
+  analyzedReviews: ReviewInput[];
   analysisResults: AnalysisItem[];
+  savedAt: string;
+  onClear: () => void;
 }) {
   const positiveCount = analysisResults.filter(
     (item) => item.sentiment === "正面"
@@ -705,7 +802,19 @@ function RealReviewAnalysis({
             其中正面 {positiveCount} 条、负面 {negativeCount} 条、
             高优先级问题 {urgentCount} 条。
           </p>
+          {savedAt && (
+  <small>
+    最近保存：
+    {new Date(savedAt).toLocaleString("zh-CN")}
+  </small>
+)}
         </div>
+        <button
+  className="ghost"
+  onClick={onClear}
+>
+  清除记录
+</button>
       </section>
 
       <div className="analysisSummary">
